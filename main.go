@@ -38,13 +38,9 @@ func isSpace(c byte) bool {
 
 func (w *WordCounter) worker() {
 	defer w.wg.Done()
-	for {
-		dataRange, ok := <-w.dataChan
-		if !ok {
-			return
-		}
+	for dataRange := range w.dataChan {
 
-		if dataRange.prevRange != nil && dataRange.prevRange.endsWithWord {
+		if dataRange.prevRange != nil && dataRange.prevRange.endsWithWord && !isSpace(dataRange.data[0]) {
 			w.incCounter(-1)
 		}
 
@@ -80,8 +76,6 @@ func (w *WordCounter) run() {
 }
 
 func main() {
-	stdinReader := bufio.NewReader(os.Stdin)
-
 	workersNumber := runtime.NumCPU()
 
 	wordCounter := WordCounter{
@@ -91,8 +85,9 @@ func main() {
 		dataChan:      make(chan *DataRange),
 	}
 
-	chunkSize := stdinReader.Size() / workersNumber
+	chunkSize := 1024 * 4
 	buffer := make([]byte, chunkSize)
+	stdinReader := bufio.NewReaderSize(os.Stdin, chunkSize*workersNumber)
 
 	var prevRange *DataRange = nil
 
